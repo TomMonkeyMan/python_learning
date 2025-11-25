@@ -1,0 +1,3 @@
+[mytool.plugins]
+hello = mytool_hello.cli
+

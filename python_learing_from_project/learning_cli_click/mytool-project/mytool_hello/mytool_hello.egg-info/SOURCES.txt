@@ -1,0 +1,9 @@
+setup.py
+mytool_hello/__init__.py
+mytool_hello/cli.py
+mytool_hello.egg-info/PKG-INFO
+mytool_hello.egg-info/SOURCES.txt
+mytool_hello.egg-info/dependency_links.txt
+mytool_hello.egg-info/entry_points.txt
+mytool_hello.egg-info/requires.txt
+mytool_hello.egg-info/top_level.txt
