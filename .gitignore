@@ -4,3 +4,7 @@ __pycache__/
 venv/
 __pycache__
 venv
+chat.db
+chat.db/
+*.db
+*.db/
