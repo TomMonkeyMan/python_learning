@@ -3,10 +3,11 @@ import { useState, useEffect, useRef } from 'react';
 import Cookies from 'js-cookie';
 import './App.css';
 
-const SHARED_PASSWORD = 'xbzmb';
+// 👇 设置你的共享密码（实际部署时建议通过环境变量注入，但本地 demo 可写死）
+const SHARED_PASSWORD = 'xbzmb'; // ← 改成你们的秘密密码！
 
 function App() {
-  const [view, setView] = useState('password');
+  const [view, setView] = useState('password'); // 'password' | 'login' | 'chat'
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [nickname, setNickname] = useState('');
@@ -14,71 +15,13 @@ function App() {
   const [inputText, setInputText] = useState('');
   const [onlineUsers, setOnlineUsers] = useState([]);
   const wsRef = useRef(null);
-  const reconnectTimeoutRef = useRef(null);
   const messagesEndRef = useRef(null);
 
-  // 工具函数：获取 WebSocket URL
-  const getWebSocketUrl = () => {
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    return `${protocol}://${window.location.host}/xbzchat/ws`;
-  };
-
-  // 连接 WebSocket（支持重连）
-  const connectWebSocket = (nick) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
-
-    const ws = new WebSocket(getWebSocketUrl());
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      console.log('WebSocket connected');
-      ws.send(JSON.stringify({ nickname: nick }));
-      // 清除可能存在的重连定时器
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
-    };
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'online_users') {
-        setOnlineUsers(data.users);
-      } else if (['message', 'system', 'history'].includes(data.type)) {
-        setMessages((prev) => [...prev, data]);
-      }
-    };
-
-    ws.onclose = () => {
-      console.log('WebSocket disconnected. Attempting to reconnect...');
-      // 不弹 alert！改为静默重连
-      if (!reconnectTimeoutRef.current) {
-        // 退避重连：1s, 2s, 4s... 最大 10s
-        let delay = 1000;
-        const reconnect = () => {
-          if (view === 'chat') {
-            connectWebSocket(nickname); // 用当前昵称重连
-          }
-        };
-        const attemptReconnect = () => {
-          reconnect();
-          delay = Math.min(delay * 2, 10000); // 指数退避，上限 10s
-          reconnectTimeoutRef.current = setTimeout(attemptReconnect, delay);
-        };
-        reconnectTimeoutRef.current = setTimeout(attemptReconnect, delay);
-      }
-    };
-
-    ws.onerror = (err) => {
-      console.error('WebSocket error:', err);
-    };
-  };
-
-  // 初始认证检查
+  // 检查 Cookie 是否已认证
   useEffect(() => {
     const auth = Cookies.get('chat_auth');
     if (auth === 'true') {
-      setView('login');
+      setView('login'); // 跳过密码页
     }
   }, []);
 
@@ -87,42 +30,10 @@ function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // 页面可见性变化时尝试重连（比如从锁屏回来）
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden && view === 'chat' && wsRef.current?.readyState !== WebSocket.OPEN) {
-        connectWebSocket(nickname);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [view, nickname]);
-
-  // 清理连接和定时器
-  useEffect(() => {
-    return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-    };
-  }, []);
-
-  // ===== 交互逻辑 =====
-
+  // 验证密码
   const handlePasswordSubmit = () => {
     if (password === SHARED_PASSWORD) {
-      Cookies.set('chat_auth', 'true', {
-        expires: 30,
-        path: '/xbzchat',
-        secure: window.location.hostname !== 'localhost',
-        sameSite: 'Strict'
-      });
+      Cookies.set('chat_auth', 'true', { expires: 30 }); // 30天免密
       setView('login');
       setPasswordError('');
     } else {
@@ -135,26 +46,64 @@ function App() {
     if (e.key === 'Enter') handlePasswordSubmit();
   };
 
+  // 连接 WebSocket（同之前）
   const connect = (nick) => {
     setNickname(nick);
     setView('chat');
-    connectWebSocket(nick);
+  
+    //const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    //const host =
+    //  window.location.hostname === 'localhost'
+    //    ? 'localhost:8099'
+    //    : window.location.host;
+    //const ws = new WebSocket(`${protocol}://${host}/ws`);
+
+    const getWebSocketUrl = () => {
+      const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      // 使用当前页面路径的前缀 + /ws
+      const basePath = '/xbzchat'; // ← 和 Nginx location 一致
+      return `${protocol}://${window.location.host}${basePath}/ws`;
+    };
+
+    const ws = new WebSocket(getWebSocketUrl());
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ nickname: nick }));
+    };
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'online_users') {
+        setOnlineUsers(data.users);
+      } else if (['message', 'system', 'history'].includes(data.type)) {
+        setMessages((prev) => [...prev, data]);
+      }
+    };
+
+    ws.onclose = () => {
+      alert('连接断开，请刷新页面重试。');
+    };
   };
 
   const sendMessage = () => {
-    if (!inputText.trim() || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    if (!inputText.trim() || !wsRef.current) return;
     wsRef.current.send(JSON.stringify({ content: inputText.trim() }));
     setInputText('');
   };
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault(); // 阻止换行
-      sendMessage();
-    }
+    if (e.key === 'Enter') sendMessage();
   };
 
-  // ===== 渲染 =====
+  // 清理 WebSocket
+  useEffect(() => {
+    return () => {
+      if (wsRef.current) wsRef.current.close();
+    };
+  }, []);
+
+  // ===== 渲染不同视图 =====
 
   if (view === 'password') {
     return (
@@ -186,9 +135,8 @@ function App() {
         <button
           className="logout-btn"
           onClick={() => {
-            Cookies.remove('chat_auth', { path: '/xbzchat' });
+            Cookies.remove('chat_auth');
             setView('password');
-            if (wsRef.current) wsRef.current.close();
           }}
         >
           切换账号 / 退出
