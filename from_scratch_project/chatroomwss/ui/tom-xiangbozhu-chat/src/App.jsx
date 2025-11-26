@@ -13,10 +13,11 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [onlineUsers, setOnlineUsers] = useState([]);
-  const [reconnecting, setReconnecting] = useState(false); // ← 新增：重连状态
+  const [reconnecting, setReconnecting] = useState(false);
   const wsRef = useRef(null);
   const messagesEndRef = useRef(null);
-  const hasReceivedHistoryRef = useRef(false); // ← 标记是否已接收过历史
+  // ✅ 删除 hasReceivedHistoryRef
+  const historyBufferRef = useRef([]); // ✅ 新增：用于累积 history 消息
 
   const getWebSocketUrl = () => {
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
@@ -31,9 +32,10 @@ function App() {
       return;
     }
 
-    // 开始重连
+    // ✅ 开始重连：清空历史 buffer 和 UI
     setReconnecting(true);
-    hasReceivedHistoryRef.current = false; // 重置历史标记
+    historyBufferRef.current = []; // 清空缓冲区
+    setMessages([]);               // 立即清空聊天界面
 
     if (wsRef.current) wsRef.current.close();
 
@@ -51,29 +53,23 @@ function App() {
       if (data.type === 'online_users') {
         setOnlineUsers(data.users);
       } else if (data.type === 'history') {
-        // 第一次收到 history：替换整个消息列表
-        if (!hasReceivedHistoryRef.current) {
-          setMessages([data]); // 如果 history 是单条包含数组，可能需要 data.messages
-          hasReceivedHistoryRef.current = true;
-        }
-        // 如果后端分多次发 history，你可能需要累积后再 set，但通常是一次性
+        // ✅ 逐条接收 history：累积并更新 UI
+        historyBufferRef.current.push(data);
+        setMessages([...historyBufferRef.current]);
       } else if (data.type === 'message' || data.type === 'system') {
-        // 实时消息：追加
+        // 实时消息：直接追加（此时历史已加载中或完成）
         setMessages((prev) => [...prev, data]);
       }
     };
 
     ws.onclose = () => {
       console.log('⚠️ WebSocket disconnected');
-      // 不立即重连，等 visibilitychange 触发
     };
 
     ws.onerror = (err) => {
       console.error('❌ WebSocket error:', err);
     };
 
-    // 连接成功或失败后，隐藏 loading（这里简化：只要 onopen 或 onclose 就关）
-    // 更严谨的做法是监听 onopen 后关闭 loading
     ws.addEventListener('open', () => setReconnecting(false));
     ws.addEventListener('close', () => {
       if (!document.hidden) {
@@ -164,6 +160,8 @@ function App() {
     setView('password');
     setMessages([]);
     setOnlineUsers([]);
+    // 可选：清空 buffer
+    historyBufferRef.current = [];
   };
 
   // ===== 渲染 =====
