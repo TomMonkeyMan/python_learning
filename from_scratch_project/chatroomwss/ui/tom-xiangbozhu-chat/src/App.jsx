@@ -13,68 +13,76 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [onlineUsers, setOnlineUsers] = useState([]);
+  const [reconnecting, setReconnecting] = useState(false); // ← 新增：重连状态
   const wsRef = useRef(null);
-  const reconnectTimeoutRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const hasReceivedHistoryRef = useRef(false); // ← 标记是否已接收过历史
 
-  // 工具函数：获取 WebSocket URL
   const getWebSocketUrl = () => {
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     return `${protocol}://${window.location.host}/xbzchat/ws`;
   };
 
-  // 连接 WebSocket（支持重连）
   const connectWebSocket = (nick) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    if (
+      wsRef.current?.readyState === WebSocket.CONNECTING ||
+      wsRef.current?.readyState === WebSocket.OPEN
+    ) {
+      return;
+    }
+
+    // 开始重连
+    setReconnecting(true);
+    hasReceivedHistoryRef.current = false; // 重置历史标记
+
+    if (wsRef.current) wsRef.current.close();
 
     const ws = new WebSocket(getWebSocketUrl());
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log('WebSocket connected');
+      console.log('✅ WebSocket connected');
       ws.send(JSON.stringify({ nickname: nick }));
-      // 清除可能存在的重连定时器
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
     };
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
+
       if (data.type === 'online_users') {
         setOnlineUsers(data.users);
-      } else if (['message', 'system', 'history'].includes(data.type)) {
+      } else if (data.type === 'history') {
+        // 第一次收到 history：替换整个消息列表
+        if (!hasReceivedHistoryRef.current) {
+          setMessages([data]); // 如果 history 是单条包含数组，可能需要 data.messages
+          hasReceivedHistoryRef.current = true;
+        }
+        // 如果后端分多次发 history，你可能需要累积后再 set，但通常是一次性
+      } else if (data.type === 'message' || data.type === 'system') {
+        // 实时消息：追加
         setMessages((prev) => [...prev, data]);
       }
     };
 
     ws.onclose = () => {
-      console.log('WebSocket disconnected. Attempting to reconnect...');
-      // 不弹 alert！改为静默重连
-      if (!reconnectTimeoutRef.current) {
-        // 退避重连：1s, 2s, 4s... 最大 10s
-        let delay = 1000;
-        const reconnect = () => {
-          if (view === 'chat') {
-            connectWebSocket(nickname); // 用当前昵称重连
-          }
-        };
-        const attemptReconnect = () => {
-          reconnect();
-          delay = Math.min(delay * 2, 10000); // 指数退避，上限 10s
-          reconnectTimeoutRef.current = setTimeout(attemptReconnect, delay);
-        };
-        reconnectTimeoutRef.current = setTimeout(attemptReconnect, delay);
-      }
+      console.log('⚠️ WebSocket disconnected');
+      // 不立即重连，等 visibilitychange 触发
     };
 
     ws.onerror = (err) => {
-      console.error('WebSocket error:', err);
+      console.error('❌ WebSocket error:', err);
     };
+
+    // 连接成功或失败后，隐藏 loading（这里简化：只要 onopen 或 onclose 就关）
+    // 更严谨的做法是监听 onopen 后关闭 loading
+    ws.addEventListener('open', () => setReconnecting(false));
+    ws.addEventListener('close', () => {
+      if (!document.hidden) {
+        setReconnecting(false);
+      }
+    });
   };
 
-  // 初始认证检查
+  // 初始化认证
   useEffect(() => {
     const auth = Cookies.get('chat_auth');
     if (auth === 'true') {
@@ -82,38 +90,34 @@ function App() {
     }
   }, []);
 
-  // 自动滚动
+  // 自动滚动（排除重连中）
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (!reconnecting) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, reconnecting]);
 
-  // 页面可见性变化时尝试重连（比如从锁屏回来）
+  // 切回页面时重连
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (!document.hidden && view === 'chat' && wsRef.current?.readyState !== WebSocket.OPEN) {
+      if (!document.hidden && view === 'chat') {
         connectWebSocket(nickname);
       }
     };
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [view, nickname]);
 
-  // 清理连接和定时器
+  // 清理
   useEffect(() => {
     return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
+      if (wsRef.current) wsRef.current.close();
     };
   }, []);
 
-  // ===== 交互逻辑 =====
+  // ===== 交互 =====
 
   const handlePasswordSubmit = () => {
     if (password === SHARED_PASSWORD) {
@@ -149,9 +153,17 @@ function App() {
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault(); // 阻止换行
+      e.preventDefault();
       sendMessage();
     }
+  };
+
+  const handleLogout = () => {
+    Cookies.remove('chat_auth', { path: '/xbzchat' });
+    if (wsRef.current) wsRef.current.close();
+    setView('password');
+    setMessages([]);
+    setOnlineUsers([]);
   };
 
   // ===== 渲染 =====
@@ -183,14 +195,7 @@ function App() {
         <h1>💕 选择你的身份</h1>
         <button onClick={() => connect('tom')}>我是 Tom</button>
         <button onClick={() => connect('香啵猪')}>我是 香啵猪</button>
-        <button
-          className="logout-btn"
-          onClick={() => {
-            Cookies.remove('chat_auth', { path: '/xbzchat' });
-            setView('password');
-            if (wsRef.current) wsRef.current.close();
-          }}
-        >
+        <button className="logout-btn" onClick={handleLogout}>
           切换账号 / 退出
         </button>
       </div>
@@ -201,7 +206,7 @@ function App() {
     <div className="chat-container">
       <header>
         <h2>私密聊天中 💬</h2>
-        <div className="online">在线：{onlineUsers.join(', ') || '加载中...'}</div>
+        <div className="online">在线：{onlineUsers.length > 0 ? onlineUsers.join(', ') : '加载中...'}</div>
       </header>
 
       <div className="messages">
@@ -225,6 +230,11 @@ function App() {
             )}
           </div>
         ))}
+        {reconnecting && (
+          <div className="reconnect-indicator">
+            🔁 正在重连...
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 

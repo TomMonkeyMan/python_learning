@@ -168,3 +168,14 @@ button:nth-of-type(2) { background: #ff9ec6; }
   font-size: 14px !important;
   padding: 8px 16px !important;
 }
+
+/* 重连提示 */
+.reconnect-indicator {
+  text-align: center;
+  padding: 8px;
+  color: #ff6b9d;
+  font-size: 14px;
+  background: #fff8f8;
+  border-radius: 8px;
+  margin: 8px 0;
+}
