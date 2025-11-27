@@ -25,10 +25,7 @@ function App() {
   };
 
   const connectWebSocket = (nick) => {
-    if (
-      wsRef.current?.readyState === WebSocket.CONNECTING ||
-      wsRef.current?.readyState === WebSocket.OPEN
-    ) {
+    if (wsRef.current && [WebSocket.CONNECTING, WebSocket.OPEN].includes(wsRef.current.readyState)) {
       return;
     }
 
@@ -42,13 +39,47 @@ function App() {
     const ws = new WebSocket(getWebSocketUrl());
     wsRef.current = ws;
 
+    let pingTimer = null;
+    let pongTimeout = null;
+
+    const startHeartbeat = () => {
+      clearInterval(pingTimer);
+      pingTimer = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          if (pongTimeout) {
+            clearTimeout(pongTimeout);
+            pongTimeout = null;
+          }
+          ws.send(JSON.stringify({ type: 'ping' }));
+          pongTimeout = setTimeout(() => {
+            console.warn('❌ Pong timeout, closing connection...');
+            ws.close(); // 触发 onclose
+          }, 5000);
+        }
+      }, 30000);
+    };
+
+    const stopHeartbeat = () => {
+      clearInterval(pingTimer);
+      if (pongTimeout) {
+        clearTimeout(pongTimeout);
+        pongTimeout = null;
+      }
+    };
+
     ws.onopen = () => {
       console.log('✅ WebSocket connected');
       ws.send(JSON.stringify({ nickname: nick }));
+      startHeartbeat();
+      setReconnecting(false);
     };
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
+      if (data.type === 'pong') {
+        clearTimeout(pongTimeout);
+        return;
+      }
 
       if (data.type === 'online_users') {
         setOnlineUsers(data.users);
@@ -64,18 +95,25 @@ function App() {
 
     ws.onclose = () => {
       console.log('⚠️ WebSocket disconnected');
+      stopHeartbeat();
+      if (view === 'chat' && !document.hidden) {
+        setTimeout(() => connectWebSocket(nick), 1000);
+      } else {
+        setReconnecting(false);
+    }
     };
 
     ws.onerror = (err) => {
       console.error('❌ WebSocket error:', err);
+      stopHeartbeat();
     };
 
-    ws.addEventListener('open', () => setReconnecting(false));
-    ws.addEventListener('close', () => {
-      if (!document.hidden) {
-        setReconnecting(false);
-      }
-    });
+    //ws.addEventListener('open', () => setReconnecting(false));
+    //ws.addEventListener('close', () => {
+    //  if (!document.hidden) {
+    //    setReconnecting(false);
+    //  }
+    //});
   };
 
   // 初始化认证
@@ -112,6 +150,24 @@ function App() {
       if (wsRef.current) wsRef.current.close();
     };
   }, []);
+
+  // 20s 检查一次状态
+  useEffect(() => {
+    if (view !== 'chat') return;
+
+    const interval = setInterval(() => {
+      if (
+        !reconnecting &&
+        wsRef.current?.readyState !== WebSocket.OPEN &&
+        !document.hidden
+      ) {
+        console.log('🔍 Detected dead connection, auto-reconnecting...');
+        connectWebSocket(nickname);
+      }
+    }, 20000); // 每 20 秒检查一次
+
+    return () => clearInterval(interval);
+  }, [view, nickname, reconnecting]);
 
   // ===== 交互 =====
 

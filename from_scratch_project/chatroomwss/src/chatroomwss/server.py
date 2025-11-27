@@ -217,6 +217,9 @@ class MyWebSS():
                     is_dict = False
 
                 if is_dict:
+                    if data.get("type") == "ping":
+                        await websocket.send(json.dumps({"type": "pong"}))
+                        continue
                     if data.get("action") == "quit":
                         break
                     elif "content" in data:
@@ -239,7 +242,7 @@ class MyWebSS():
                     # 只有当 nick_to_key 指向当前 join_key 时才删除（防止被新连接覆盖后误删）
                     if self.nick_to_key.get(current_nick) == join_key:
                         del self.nick_to_key[current_nick]
-                        
+
             await self.save_login_status_to_DB("logout", join_key, nickname, _now())
             logger.info(f"{nickname} has left the chat")
             await self.broadcast_message(join_key, nickname, f"{nickname} has left the chat", "system")
