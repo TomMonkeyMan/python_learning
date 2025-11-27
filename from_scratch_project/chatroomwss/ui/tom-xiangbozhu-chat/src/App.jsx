@@ -16,12 +16,44 @@ function App() {
   const [reconnecting, setReconnecting] = useState(false);
   const wsRef = useRef(null);
   const messagesEndRef = useRef(null);
-  // ✅ 删除 hasReceivedHistoryRef
-  const historyBufferRef = useRef([]); // ✅ 新增：用于累积 history 消息
+  const historyBufferRef = useRef([]);
 
   const getWebSocketUrl = () => {
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     return `${protocol}://${window.location.host}/xbzchat/ws`;
+  };
+
+  // 🔁 封装：尝试 ping 探测当前连接是否真实可用
+  const testConnectionAndReconnectIfNeeded = (nick) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      connectWebSocket(nick);
+      return;
+    }
+
+    // 发送探测 ping
+    let pongReceived = false;
+    const onPong = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'pong') {
+          pongReceived = true;
+          ws.removeEventListener('message', onPong);
+        }
+      } catch {}
+    };
+
+    ws.addEventListener('message', onPong);
+    ws.send(JSON.stringify({ type: 'ping' }));
+
+    // 3 秒超时判断
+    setTimeout(() => {
+      ws.removeEventListener('message', onPong);
+      if (!pongReceived) {
+        console.log('📱 Connection appears dead after page resume, reconnecting...');
+        connectWebSocket(nick);
+      }
+    }, 3000);
   };
 
   const connectWebSocket = (nick) => {
@@ -29,12 +61,13 @@ function App() {
       return;
     }
 
-    // ✅ 开始重连：清空历史 buffer 和 UI
     setReconnecting(true);
-    historyBufferRef.current = []; // 清空缓冲区
-    setMessages([]);               // 立即清空聊天界面
+    historyBufferRef.current = [];
+    setMessages([]);
 
-    if (wsRef.current) wsRef.current.close();
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
 
     const ws = new WebSocket(getWebSocketUrl());
     wsRef.current = ws;
@@ -53,10 +86,10 @@ function App() {
           ws.send(JSON.stringify({ type: 'ping' }));
           pongTimeout = setTimeout(() => {
             console.warn('❌ Pong timeout, closing connection...');
-            ws.close(); // 触发 onclose
+            ws.close();
           }, 5000);
         }
-      }, 30000);
+      }, 20000); // ⏱ 心跳缩短到 20s，更适应 NAT/移动网络
     };
 
     const stopHeartbeat = () => {
@@ -77,18 +110,19 @@ function App() {
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.type === 'pong') {
-        clearTimeout(pongTimeout);
+        if (pongTimeout) {
+          clearTimeout(pongTimeout);
+          pongTimeout = null;
+        }
         return;
       }
 
       if (data.type === 'online_users') {
         setOnlineUsers(data.users);
       } else if (data.type === 'history') {
-        // ✅ 逐条接收 history：累积并更新 UI
         historyBufferRef.current.push(data);
         setMessages([...historyBufferRef.current]);
       } else if (data.type === 'message' || data.type === 'system') {
-        // 实时消息：直接追加（此时历史已加载中或完成）
         setMessages((prev) => [...prev, data]);
       }
     };
@@ -100,20 +134,13 @@ function App() {
         setTimeout(() => connectWebSocket(nick), 1000);
       } else {
         setReconnecting(false);
-    }
+      }
     };
 
     ws.onerror = (err) => {
       console.error('❌ WebSocket error:', err);
       stopHeartbeat();
     };
-
-    //ws.addEventListener('open', () => setReconnecting(false));
-    //ws.addEventListener('close', () => {
-    //  if (!document.hidden) {
-    //    setReconnecting(false);
-    //  }
-    //});
   };
 
   // 初始化认证
@@ -124,52 +151,60 @@ function App() {
     }
   }, []);
 
-  // 自动滚动（排除重连中）
+  // 自动滚动
   useEffect(() => {
     if (!reconnecting) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, reconnecting]);
 
-  // 切回页面时重连
+  // 📱 页面可见性变化：iOS 后台切回检测
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (!document.hidden && view === 'chat') {
-        connectWebSocket(nickname);
+      if (!document.hidden && view === 'chat' && nickname) {
+        testConnectionAndReconnectIfNeeded(nickname);
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [view, nickname]);
 
-  // 清理
+  // 📱 pageshow：iOS 冻结恢复兜底（非常重要！）
+  useEffect(() => {
+    const handlePageShow = () => {
+      if (view === 'chat' && !document.hidden && nickname) {
+        testConnectionAndReconnectIfNeeded(nickname);
+      }
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, [view, nickname]);
+
+  // 清理 WebSocket
   useEffect(() => {
     return () => {
       if (wsRef.current) wsRef.current.close();
     };
   }, []);
 
-  // 20s 检查一次状态
+  // 20s 定时兜底检查（防止极端情况）
   useEffect(() => {
-    if (view !== 'chat') return;
+    if (view !== 'chat' || !nickname) return;
 
     const interval = setInterval(() => {
-      if (
-        !reconnecting &&
-        wsRef.current?.readyState !== WebSocket.OPEN &&
-        !document.hidden
-      ) {
-        console.log('🔍 Detected dead connection, auto-reconnecting...');
-        connectWebSocket(nickname);
+      if (!reconnecting && !document.hidden) {
+        const ws = wsRef.current;
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          console.log('🔍 Periodic check: dead connection, reconnecting...');
+          connectWebSocket(nickname);
+        }
       }
-    }, 20000); // 每 20 秒检查一次
+    }, 20000);
 
     return () => clearInterval(interval);
   }, [view, nickname, reconnecting]);
 
-  // ===== 交互 =====
+  // ===== 交互逻辑 =====
 
   const handlePasswordSubmit = () => {
     if (password === SHARED_PASSWORD) {
@@ -177,7 +212,7 @@ function App() {
         expires: 30,
         path: '/xbzchat',
         secure: window.location.hostname !== 'localhost',
-        sameSite: 'Strict'
+        sameSite: 'Strict',
       });
       setView('login');
       setPasswordError('');
@@ -216,7 +251,6 @@ function App() {
     setView('password');
     setMessages([]);
     setOnlineUsers([]);
-    // 可选：清空 buffer
     historyBufferRef.current = [];
   };
 
@@ -285,9 +319,7 @@ function App() {
           </div>
         ))}
         {reconnecting && (
-          <div className="reconnect-indicator">
-            🔁 正在重连...
-          </div>
+          <div className="reconnect-indicator">🔁 正在重连...</div>
         )}
         <div ref={messagesEndRef} />
       </div>
