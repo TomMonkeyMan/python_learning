@@ -1,9 +1,70 @@
 // src/App.jsx
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import Cookies from 'js-cookie';
 import './App.css';
 
 const SHARED_PASSWORD = 'xbzmb';
+// 解析后端 EST 时间字符串为标准 Date（UTC 内部表示）
+const parseBackendTimestamp = (timestampStr) => {
+  const clean = timestampStr.replace(/\.\d{3}$/, '');
+  const iso = clean.replace(' ', 'T') + '-05:00'; // EST = UTC-5
+  return new Date(iso);
+};
+
+// 获取用户本地“今天”的日期字符串（YYYY-MM-DD）
+const getLocalToday = () => {
+  return new Date().toLocaleDateString('sv-SE');
+};
+
+const getLocalYesterday = () => {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toLocaleDateString('sv-SE');
+};
+
+// 格式化显示时间（按用户本地时区）
+const formatDisplayTime = (timestamp) => {
+  const msgDate = parseBackendTimestamp(timestamp);
+  const dateStr = msgDate.toLocaleDateString('sv-SE'); // 用户本地日期
+
+  const today = getLocalToday();
+  const yesterday = getLocalYesterday();
+
+  const timePart = msgDate.toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  if (dateStr === today) {
+    return timePart;
+  } else if (dateStr === yesterday) {
+    return `昨天 ${timePart}`;
+  } else {
+    const datePart = msgDate.toLocaleDateString('zh-CN', {
+      month: 'numeric',
+      day: 'numeric'
+    }).replace('/', '月') + '日';
+    return `${datePart} ${timePart}`;
+  }
+};
+
+// 判断是否需要日期横幅（按用户本地日期）
+const shouldShowDateHeader = (currentMsg, prevMsg) => {
+  if (!prevMsg) return true;
+  const curr = parseBackendTimestamp(currentMsg.timestamp).toLocaleDateString('sv-SE');
+  const prev = parseBackendTimestamp(prevMsg.timestamp).toLocaleDateString('sv-SE');
+  return curr !== prev;
+};
+
+// 用于 date-header 的完整本地日期
+const formatFullLocalDate = (timestamp) => {
+  const d = parseBackendTimestamp(timestamp);
+  return d.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+};
 
 function App() {
   const [view, setView] = useState('password');
@@ -298,29 +359,33 @@ function App() {
       </header>
 
       <div className="messages">
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`msg ${
-              msg.type === 'system'
-                ? 'system'
-                : msg.nickname === nickname
-                ? 'me'
-                : 'other'
-            }`}
-          >
-            {msg.type === 'system' ? (
-              <em>{msg.content}</em>
-            ) : (
-              <>
-                <strong>{msg.nickname}:</strong> {msg.content}
-              </>
-            )}
-          </div>
-        ))}
-        {reconnecting && (
-          <div className="reconnect-indicator">🔁 正在重连...</div>
+        {messages.map((msg, i) => {
+          const prevMsg = messages[i - 1];
+          const showDateHeader = shouldShowDateHeader(msg, prevMsg);
+          const displayTime = formatDisplayTime(msg.timestamp);
+
+          return (
+    <>
+      {showDateHeader && (
+        <div className="date-header">
+          {formatFullLocalDate(msg.timestamp)}
+        </div>
+      )}
+      <div className={`msg ${msg.type === 'system' ? 'system' : msg.nickname === nickname ? 'me' : 'other'}`}>
+        {msg.type === 'system' ? (
+          <em>{msg.content}</em>
+        ) : (
+          <>
+            <strong>{msg.nickname}:</strong> {msg.content}
+          </>
         )}
+        {msg.type !== 'system' && <div className="msg-time">{displayTime}</div>}
+      </div>
+    </>
+  );
+        })}
+      
+        {reconnecting && <div className="reconnect-indicator">🔁 正在重连...</div>}
         <div ref={messagesEndRef} />
       </div>
 
