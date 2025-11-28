@@ -1,4 +1,5 @@
 /* src/App.css */
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -8,7 +9,6 @@ body {
   justify-content: center;
   align-items: center;
   color: #333;
-
 }
 
 #root {
@@ -28,15 +28,24 @@ body {
   flex-direction: column;
 }
 
+@media (max-width: 500px) {
+  .login-container,
+  .chat-container {
+    padding: 12px;
+  }
+}
+
 .login-container {
   text-align: center;
   justify-content: center;
 }
+
 .login-container h1 {
   color: #ff6b9d;
   margin-bottom: 20px;
   font-size: 22px;
 }
+
 .login-container button {
   display: block;
   width: 80%;
@@ -48,6 +57,7 @@ body {
   color: white;
   cursor: pointer;
 }
+
 button:nth-of-type(1) { background: #6a9fff; }
 button:nth-of-type(2) { background: #ff9ec6; }
 
@@ -59,6 +69,7 @@ button:nth-of-type(2) { background: #ff9ec6; }
   border-bottom: 1px solid #eee;
   margin-bottom: 16px;
 }
+
 .online {
   font-size: 14px;
   color: #888;
@@ -69,6 +80,7 @@ button:nth-of-type(2) { background: #ff9ec6; }
   overflow-y: auto;
   padding-right: 8px;
 }
+
 .msg {
   margin-bottom: 12px;
   padding: 8px 12px;
@@ -76,6 +88,7 @@ button:nth-of-type(2) { background: #ff9ec6; }
   line-height: 1.4;
   word-break: break-word;
 }
+
 .msg.system {
   text-align: center;
   color: #888;
@@ -83,12 +96,14 @@ button:nth-of-type(2) { background: #ff9ec6; }
   background: transparent;
   padding: 4px 0;
 }
+
 .msg.me {
   background: #dcf8c6;
   margin-left: auto;
   max-width: 80%;
   border-bottom-right-radius: 2px;
 }
+
 .msg.other {
   background: #ebebeb;
   margin-right: auto;
@@ -100,8 +115,8 @@ button:nth-of-type(2) { background: #ff9ec6; }
   display: flex;
   gap: 8px;
   margin-top: auto;
-
 }
+
 .input-area input {
   flex: 1;
   padding: 10px;
@@ -110,6 +125,7 @@ button:nth-of-type(2) { background: #ff9ec6; }
   outline: none;
   font-size: 16px;
 }
+
 .input-area button {
   padding: 10px 16px;
   background: #ff6b9d;
@@ -118,12 +134,12 @@ button:nth-of-type(2) { background: #ff9ec6; }
   border-radius: 20px;
   cursor: pointer;
 }
+
 .input-area button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-/* 密码页 */
 .password-container {
   background: white;
   border-radius: 16px;
@@ -133,10 +149,12 @@ button:nth-of-type(2) { background: #ff9ec6; }
   max-width: 400px;
   margin: 0 auto;
 }
+
 .password-container h1 {
   color: #ff6b9d;
   margin-bottom: 20px;
 }
+
 .password-container input {
   width: 80%;
   padding: 12px;
@@ -145,6 +163,7 @@ button:nth-of-type(2) { background: #ff9ec6; }
   border-radius: 8px;
   margin-bottom: 16px;
 }
+
 .password-container button {
   padding: 10px 24px;
   background: #ff6b9d;
@@ -153,15 +172,16 @@ button:nth-of-type(2) { background: #ff9ec6; }
   border-radius: 6px;
   cursor: pointer;
 }
+
 .password-container button:disabled {
   opacity: 0.6;
 }
+
 .error {
   color: #e74c3c;
   margin: 8px 0;
 }
 
-/* 登录页新增退出按钮 */
 .logout-btn {
   margin-top: 20px;
   background: #ccc !important;
@@ -169,7 +189,6 @@ button:nth-of-type(2) { background: #ff9ec6; }
   padding: 8px 16px !important;
 }
 
-/* 重连提示 */
 .reconnect-indicator {
   text-align: center;
   padding: 8px;
@@ -180,8 +199,6 @@ button:nth-of-type(2) { background: #ff9ec6; }
   margin: 8px 0;
 }
 
-
-/* 日期横幅 */
 .date-header {
   text-align: center;
   font-size: 12px;
@@ -208,7 +225,6 @@ button:nth-of-type(2) { background: #ff9ec6; }
   right: 0;
 }
 
-/* 消息时间 */
 .msg-time {
   font-size: 11px;
   color: #999;
@@ -217,7 +233,65 @@ button:nth-of-type(2) { background: #ff9ec6; }
   opacity: 0.8;
 }
 
-/* 系统消息不显示时间（可选） */
 .msg.system .msg-time {
   display: none;
+}
+
+.chat-header {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.chat-header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.status-bar {
+  padding: 6px 12px;
+  background-color: #fafafa;
+  font-size: 13px;
+  color: #555;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 12px;
+}
+
+.online-section,
+.last-logout-section {
+  margin: 2px 0;
+}
+
+.last-user {
+  margin-left: 6px;
+}
+
+.nickname {
+  color: #d32f2f;
+}
+
+/* 响应式设计 */
+@media (max-width: 500px) {
+  #root {
+    height: 95vh;
+  }
+
+  .chat-header h3 {
+    font-size: 16px;
+  }
+
+  .status-bar {
+    padding: 4px 8px;
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+
+  .online-section,
+  .last-logout-section {
+    margin: 2px 0;
+  }
+
+  .msg {
+    font-size: 14px;
+    padding: 6px 10px;
+  }
 }
