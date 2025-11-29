@@ -126,7 +126,21 @@ function App() {
       }
     }, 3000);
   };
-
+  // 拉取最后在线时间
+  const fetchAndSetLastLogoutTimes = async () => {
+    try {
+      const res = await fetch("/xbzchat/v1/last_online_time");
+      if (!res.ok) return;
+      const data = await res.json();
+      const logoutMap = {};
+      data.forEach((item) => {
+        logoutMap[item.nick_name] = item.last_logout_time;
+      });
+      setLastLogoutTimes(logoutMap);
+    } catch (err) {
+      console.warn("Failed to fetch last logout times:", err);
+    }
+  };
   const connectWebSocket = (nick) => {
     if (
       wsRef.current &&
@@ -179,6 +193,7 @@ function App() {
       ws.send(JSON.stringify({ nickname: nick }));
       startHeartbeat();
       setReconnecting(false);
+      fetchAndSetLastLogoutTimes();
     };
 
     ws.onmessage = (event) => {
@@ -219,25 +234,17 @@ function App() {
 
   // 最后登录时间
   useEffect(() => {
-    const fetchLastLogout = async () => {
-      try {
-        const res = await fetch("/xbzchat/v1/last_online_time");
-        const data = await res.json(); // data 是数组！
-
-        // ✅ 转换成对象：{ "tom": "2025-...", "香啵猪": "2025-..." }
-        const logoutMap = {};
-        data.forEach((item) => {
-          logoutMap[item.nick_name] = item.last_logout_time;
-        });
-
-        setLastLogoutTimes(logoutMap); // 存为对象
-      } catch (err) {
-        console.error("Failed to fetch last logout times", err);
-      }
-    };
-
-    fetchLastLogout();
+    fetchAndSetLastLogoutTimes(); // ✅ 使用新函数
   }, []);
+
+  useEffect(() => {
+    if (view !== "chat" || !nickname) return;
+
+    fetchAndSetLastLogoutTimes(); // 立即拉一次
+    const intervalId = setInterval(fetchAndSetLastLogoutTimes, 15000);
+
+    return () => clearInterval(intervalId);
+  }, [view, nickname]);
 
   // 初始化认证
   useEffect(() => {
@@ -327,19 +334,6 @@ function App() {
     setNickname(nick);
     setView("chat");
     connectWebSocket(nick);
-    try {
-      const res = fetch("/xbzchat/v1/last_online_time");
-      if (res.ok) {
-        const data = res.json();
-        const timeMap = {};
-        data.forEach((item) => {
-          timeMap[item.nick_name] = item.last_logout_time; // 假设后端返回字段是 last_logout_time
-        });
-        setLastLogoutTimes(timeMap);
-      }
-    } catch (err) {
-      console.warn("Failed to load last logout times:", err);
-    }
   };
 
   const sendMessage = () => {
