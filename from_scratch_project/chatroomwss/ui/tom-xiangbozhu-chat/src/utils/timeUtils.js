@@ -2,6 +2,11 @@
 
 // 解析后端 EST 时间字符串为标准 Date（UTC 内部表示）
 export const parseBackendTimestamp = (timestampStr) => {
+  //if (!timestampStr || typeof timestampStr !== 'string') {
+  //  console.error("Invalid timestampStr:", timestampStr, "typeof:", typeof timestampStr);
+  //  debugger; // 或保留
+    //return new Date(0);
+  //}
   const clean = timestampStr.replace(/\.\d{3}$/, "");
   const iso = clean.replace(" ", "T") + "-05:00"; // EST = UTC-5
   return new Date(iso);

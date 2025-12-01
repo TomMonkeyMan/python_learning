@@ -97,9 +97,10 @@ export default function ChatView({ nickname, onLogout }) {
       <div className="messages">
         {messages.map((msg, i) => {
           const prevMsg = messages[i - 1];
+          console.log("debug 1:", msg, msg.timestamp)
           const showDateHeader = shouldShowDateHeader(msg, prevMsg);
           const displayTime = formatDisplayTime(msg.timestamp);
-
+          
           return (
             <>
               {showDateHeader && (

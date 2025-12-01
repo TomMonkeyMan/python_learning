@@ -82,7 +82,8 @@ export const useWebSocket = ({
         if (onOnlineUsers) onOnlineUsers(data.users);
       } else if (data.type === "history") {
         historyBufferRef.current.push(data);
-        if (onHistory) onHistory([...historyBufferRef.current]);
+        //if (onHistory) onHistory([...historyBufferRef.current]);
+        if (onHistory) onHistory(data);
       } else if (data.type === "message" || data.type === "system") {
         if (onMessage) onMessage(data);
       }
