@@ -6,30 +6,52 @@ from fastapi.responses import FileResponse
 import os
 import secrets
 from pathlib import Path
+import urllib.parse
+
 
 app = FastAPI()
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 VALID_USERS = {"tom", "香啵猪"}
+from pydantic import BaseModel
 
+class LoginRequest(BaseModel):
+    nickname: str
 
 @app.post("/xbzchat/v1/login_http")
-def login_http(nickname: str, response: Response):
+def login_http(request: LoginRequest, response: Response):
+    nickname = request.nickname
     if nickname not in VALID_USERS:
         raise HTTPException(status_code=400, detail="Invalid user")
-    # 设置 Cookie（有效期 1 小时）
+    encoded_nickname = urllib.parse.quote(nickname, safe="")
     response.set_cookie(
         key="auth_user",
-        value=nickname,
-        max_age=24 * 3600,  # 24 hour
+        value=encoded_nickname,
+        max_age=24 * 3600,
         path="/xbzchat",
-        httponly=True,  # 防 XSS
-        secure=False,  # 开发环境设 False；生产环境 HTTPS 设 True
+        httponly=True,
+        secure=False,
         samesite="strict",
     )
-
     return {"status": "logged in"}
+
+#@app.post("/xbzchat/v1/login_http")
+#def login_http(nickname: str, response: Response):
+#    if nickname not in VALID_USERS:
+#        raise HTTPException(status_code=400, detail="Invalid user")
+#    # 设置 Cookie（有效期 1 小时）
+#    response.set_cookie(
+#        key="auth_user",
+#        value=nickname,
+#        max_age=24 * 3600,  # 24 hour
+#        path="/xbzchat",
+#        httponly=True,  # 防 XSS
+#        secure=False,  # 开发环境设 False；生产环境 HTTPS 设 True
+#        samesite="strict",
+#    )
+#
+#    return {"status": "logged in"}
 
 
 def get_last_logout_times() -> List[Dict[str, str]]:
@@ -61,11 +83,24 @@ def last_online_time():
 
 
 
-
 def get_current_user(auth_user: str = Cookie(None)) -> str:
-    if auth_user not in VALID_USERS:
+    if auth_user is None:
         raise HTTPException(status_code=401, detail="未登录或身份无效")
-    return auth_user
+    
+    try:
+        decoded = urllib.parse.unquote(auth_user)
+    except Exception:
+        raise HTTPException(status_code=401, detail="身份信息损坏")
+
+    if decoded not in VALID_USERS:
+        raise HTTPException(status_code=401, detail="未登录或身份无效")
+    
+    return decoded
+
+#def get_current_user(auth_user: str = Cookie(None)) -> str:
+#    if auth_user not in VALID_USERS:
+#        raise HTTPException(status_code=401, detail="未登录或身份无效")
+#    return auth_user
 
 
 @app.post("/xbzchat/v1/upload_image")
