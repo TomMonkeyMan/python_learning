@@ -299,3 +299,17 @@ button:nth-of-type(2) {
     padding: 6px 10px;
   }
 }
+
+/* 确保图片消息容器可以正确包裹图片 */
+.image-message {
+  text-align: center; /* 图片居中显示 */
+  margin: 10px 0; /* 上下边距 */
+}
+
+/* 设置图片的最大宽度和高度，使其自适应容器大小 */
+.image-message img {
+  max-width: 100%; /* 图片最大宽度为容器的100% */
+  height: auto; /* 高度自适应，保持图片比例 */
+  border-radius: 8px; /* 可选：给图片加圆角 */
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* 可选：给图片加阴影效果 */
+}

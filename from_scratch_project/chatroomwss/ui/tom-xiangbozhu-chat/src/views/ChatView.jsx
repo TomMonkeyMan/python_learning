@@ -211,7 +211,7 @@ export default function ChatView({ nickname, onLogout }) {
           ref={fileInputRef}
         />
 
-        <button onClick={() => fileInputRef.current?.click()}>📷 图片</button>
+        <button onClick={() => fileInputRef.current?.click()}>📷</button>
       </div>
     </div>
   );

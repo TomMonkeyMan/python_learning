@@ -17,6 +17,7 @@ function App() {
   }, []);
 
   const handleAuthSuccess = () => {
+    setAuthCookie(); // 确保设置了 xbzhchat_auth=true
     setView("login");
   };
 

@@ -19,6 +19,12 @@ export default defineConfig({
         changeOrigin: true,
         //rewrite: (path) => path.replace(/^\/xbzchat\/ws/, '/ws'),
       },
+      "/xbzchat/v1/upload_image": {
+        target: "http://localhost:8098",
+        ws: true,
+        changeOrigin: true,
+        //rewrite: (path) => path.replace(/^\/xbzchat\/ws/, '/ws'),
+      },
     },
   },
 });
