@@ -5,7 +5,7 @@ export const parseBackendTimestamp = (timestampStr) => {
   //if (!timestampStr || typeof timestampStr !== 'string') {
   //  console.error("Invalid timestampStr:", timestampStr, "typeof:", typeof timestampStr);
   //  debugger; // 或保留
-    //return new Date(0);
+  //return new Date(0);
   //}
   const clean = timestampStr.replace(/\.\d{3}$/, "");
   const iso = clean.replace(" ", "T") + "-05:00"; // EST = UTC-5
@@ -55,8 +55,12 @@ export const formatDisplayTime = (timestamp) => {
 // 判断是否需要日期横幅（按用户本地日期）
 export const shouldShowDateHeader = (currentMsg, prevMsg) => {
   if (!prevMsg) return true;
-  const curr = parseBackendTimestamp(currentMsg.timestamp).toLocaleDateString("sv-SE");
-  const prev = parseBackendTimestamp(prevMsg.timestamp).toLocaleDateString("sv-SE");
+  const curr = parseBackendTimestamp(currentMsg.timestamp).toLocaleDateString(
+    "sv-SE",
+  );
+  const prev = parseBackendTimestamp(prevMsg.timestamp).toLocaleDateString(
+    "sv-SE",
+  );
   return curr !== prev;
 };
 

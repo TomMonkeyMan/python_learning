@@ -128,7 +128,9 @@ export const useWebSocket = ({
     setTimeout(() => {
       ws.removeEventListener("message", onPong);
       if (!pongReceived) {
-        console.log("📱 Connection appears dead after page resume, reconnecting...");
+        console.log(
+          "📱 Connection appears dead after page resume, reconnecting...",
+        );
         connect();
       }
     }, 3000);
@@ -163,7 +165,8 @@ export const useWebSocket = ({
       }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [nickname, testConnectionAndReconnectIfNeeded]);
 
   useEffect(() => {
