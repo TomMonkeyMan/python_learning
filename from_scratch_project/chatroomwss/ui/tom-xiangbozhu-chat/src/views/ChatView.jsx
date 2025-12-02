@@ -210,7 +210,7 @@ export default function ChatView({ nickname, onLogout }) {
           maxLength={200}
         />
         <button onClick={sendMessage} disabled={!inputText.trim()}>
-          发送
+          ➤
         </button>
         <input
           type="file"
