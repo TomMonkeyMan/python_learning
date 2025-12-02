@@ -32,6 +32,8 @@ export default function ChatView({ nickname, onLogout }) {
       setMessages([...historyBufferRef.current]);
     },
     onOpen: () => {
+      historyBufferRef.current = [];
+      setMessages([]);
       setReconnecting(false);
     },
     onClose: () => {
