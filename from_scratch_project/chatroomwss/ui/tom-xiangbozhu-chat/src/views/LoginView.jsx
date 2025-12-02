@@ -36,16 +36,10 @@ export default function LoginView({ onLogin, onLogout }) {
   return (
     <div className="login-container">
       <h1>💕 选择你的身份</h1>
-      <button
-        onClick={() => handleBackendLogin("tom")}
-        disabled={loading}
-      >
+      <button onClick={() => handleBackendLogin("tom")} disabled={loading}>
         我是 Tom
       </button>
-      <button
-        onClick={() => handleBackendLogin("香啵猪")}
-        disabled={loading}
-      >
+      <button onClick={() => handleBackendLogin("香啵猪")} disabled={loading}>
         我是 香啵猪
       </button>
       <button className="logout-btn" onClick={onLogout}>

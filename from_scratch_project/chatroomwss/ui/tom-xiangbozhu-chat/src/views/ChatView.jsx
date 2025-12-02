@@ -47,7 +47,9 @@ export default function ChatView({ nickname, onLogout }) {
   // 自动滚动
   useEffect(() => {
     if (!reconnecting) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 0);
     }
   }, [messages, reconnecting]);
 
@@ -166,6 +168,12 @@ export default function ChatView({ nickname, onLogout }) {
                           src={`/xbzchat/v1/image/${msg.content.slice(5, -1)}`}
                           alt="聊天图片"
                           loading="lazy"
+                          onLoad={() => {
+                            // 图片加载完成后，再尝试滚动到底部
+                            messagesEndRef.current?.scrollIntoView({
+                              behavior: "auto",
+                            });
+                          }}
                           onError={(e) => {
                             e.target.alt = "图片加载失败";
                             e.target.style.opacity = "0.6";
