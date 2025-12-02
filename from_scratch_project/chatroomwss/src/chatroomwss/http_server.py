@@ -135,4 +135,5 @@ async def get_image(image_id: str, user: str = Depends(get_current_user)):
     if not filepath.exists():
         raise HTTPException(status_code=404, detail="图片不存在")
 
-    return FileResponse(filepath)
+    return FileResponse(path = filepath,
+                        headers={"Cache-Control": "private, max-age=259200"})

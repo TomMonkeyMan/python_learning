@@ -215,7 +215,7 @@ export default function ChatView({ nickname, onLogout }) {
         <input
           type="file"
           accept="image/*"
-          capture="environment" // iOS 优先调用相机
+          //capture="environment" // iOS 优先调用相机
           onChange={handleImageUpload}
           style={{ display: "none" }}
           ref={fileInputRef}
