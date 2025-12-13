@@ -135,16 +135,13 @@ class MyWebSS:
                     await ws.send(message)
                 except ConnectionClosed:
                     pass
-        
+
         for user in VALID_USERS:
             if user != nickname and user not in online_users:
                 subs = self.load_webpush_subscriptions(user)
                 for sub in subs:
-                self.send_push(
-                    sub,
-                    title=f"{nickname} 给你发了消息",
-                    body=content
-                )
+                    self.send_push(sub, title=f"{nickname} 给你发了消息", body=content)
+
     # webpush
     def load_webpush_subscriptions(self, nickname: str):
         conn = sqlite3.connect("chat.db")
