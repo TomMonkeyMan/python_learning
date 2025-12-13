@@ -313,3 +313,17 @@ button:nth-of-type(2) {
   border-radius: 8px; /* 可选：给图片加圆角 */
   box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* 可选：给图片加阴影效果 */
 }
+
+.notification-button {
+  background-color: #4f46e5;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.notification-button:hover {
+  background-color: #3730a3;
+}

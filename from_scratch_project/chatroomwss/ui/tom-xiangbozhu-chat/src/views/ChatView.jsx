@@ -7,6 +7,61 @@ import {
 import { useLastLogoutTimes } from "../hooks/useLastLogoutTimes";
 import { useWebSocket } from "../hooks/useWebSocket";
 
+//add web push
+const VAPID_PUBLIC_KEY =
+  "BDb8-UVyCaiPiywsHX8Lr29tcIhoE7eMemeCGHUjWFLSciDWfh4leFNVamBIn4HlkFOvkmzz_36fyrj5-n0IF4s";
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+}
+
+async function setupPushSubscription() {
+  if (!("serviceWorker" in navigator)) return;
+  if (!("PushManager" in window)) return;
+
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") return;
+
+  const reg = await navigator.serviceWorker.ready;
+
+  // 避免重复订阅
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) {
+    sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
+  }
+
+  // 发给后端保存
+  await fetch("/xbzchat/v1/push/subscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(sub),
+    credentials: "include",
+  });
+}
+
+const requestPushPermission = async () => {
+  if (Notification.permission === "denied") {
+    alert("你之前拒绝了通知，请在浏览器设置里手动开启");
+    return;
+  }
+
+  const permission = await Notification.requestPermission();
+  if (permission === "granted") {
+    // 成功允许 → 再注册 Service Worker 并订阅
+    await setupPushSubscription();
+    alert("桌面通知已开启！");
+  } else {
+    alert("未允许通知，将无法收到桌面提醒");
+  }
+};
+
 export default function ChatView({ nickname, onLogout }) {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState("");
@@ -138,6 +193,17 @@ export default function ChatView({ nickname, onLogout }) {
               );
             })}
           </div>
+        )}
+      </div>
+
+      <div>
+        {(
+          <button
+            onClick={requestPushPermission}
+            className="notification-button"
+          >
+            开启桌面通知 🔔
+          </button>
         )}
       </div>
 
