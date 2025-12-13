@@ -7,6 +7,8 @@ import os
 import secrets
 from pathlib import Path
 import urllib.parse
+from pywebpush import webpush, WebPushException
+from push_config import VAPID_PUBLIC_KEY
 
 
 app = FastAPI()
@@ -137,3 +139,57 @@ async def get_image(image_id: str, user: str = Depends(get_current_user)):
 
     return FileResponse(path = filepath,
                         headers={"Cache-Control": "private, max-age=259200"})
+
+
+# web push notification
+def init_push_db():
+    conn = sqlite3.connect("chat.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nick_name TEXT NOT NULL,
+            endpoint TEXT NOT NULL,
+            p256dh TEXT NOT NULL,
+            auth TEXT NOT NULL,
+            UNIQUE(nick_name, endpoint)
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+init_push_db()
+
+class PushSubscription(BaseModel):
+    endpoint: str
+    keys: Dict[str, str]
+
+
+@app.post("/xbzchat/v1/push/subscribe")
+def push_subscribe(
+    sub: PushSubscription,
+    user: str = Depends(get_current_user)
+):
+    conn = sqlite3.connect("chat.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT OR IGNORE INTO push_subscriptions
+        (nick_name, endpoint, p256dh, auth)
+        VALUES (?, ?, ?, ?)
+    """, (
+        user,
+        sub.endpoint,
+        sub.keys["p256dh"],
+        sub.keys["auth"],
+    ))
+
+    conn.commit()
+    conn.close()
+    return {"status": "ok"}
+
+@app.get("/xbzchat/v1/push/vapid_public_key")
+def get_vapid_key():
+    return {"key": VAPID_PUBLIC_KEY}
+
+
