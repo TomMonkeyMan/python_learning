@@ -23,6 +23,8 @@ logger = logging.getLogger("websockets")
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
 
+VALID_USERS = {"tom", "香啵猪"}
+
 
 def _now():
     return datetime.now().__str__()[:23]
@@ -136,12 +138,6 @@ class MyWebSS:
                 except ConnectionClosed:
                     pass
 
-        for user in VALID_USERS:
-            if user != nickname and user not in online_users:
-                subs = self.load_webpush_subscriptions(user)
-                for sub in subs:
-                    self.send_push(sub, title=f"{nickname} 给你发了消息", body=content)
-
     # webpush
     def load_webpush_subscriptions(self, nickname: str):
         conn = sqlite3.connect("chat.db")
@@ -194,6 +190,34 @@ class MyWebSS:
                     await ws.send(message)
                 except ConnectionClosed:
                     pass
+
+        # push notification
+        #if msg_type == "message":
+        #    for user in VALID_USERS:
+        #        logger.info(f"I'm in {nickname}'s push note process, checking {user}")
+        #        if user != nickname and user not in [
+        #            nick for _, nick in self.clients.values()
+        #        ]:  # online_users:
+        #            subs = self.load_webpush_subscriptions(user)
+        #            logger.info(f"{subs} has subscribed")
+        #            for sub in subs:
+        #                try:
+        #                    logger.info(
+        #                        f"Push notification to: {sub} from {nickname}, {content}"
+        #                    )
+        #                    if sub["endpoint"].startswith(
+        #                        "https://web.push.apple.com/"
+        #                    ):
+        #                        logger.info(
+        #                            "Skipping Apple Push for now (requires APNS key)"
+        #                        )
+        #                        continue
+        #                    else:
+        #                        self.send_webpush(
+        #                            sub, title=f"{nickname} 给你发了消息", body=content
+        #                        )
+        #                except Exception as e:
+        #                    logger.info(f" error {e}")
 
     async def handler(self, websocket):
         nickname = "Guest"

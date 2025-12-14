@@ -80,11 +80,6 @@ def get_last_logout_times() -> List[Dict[str, str]]:
 def last_online_time():
     return get_last_logout_times()
 
-
-
-
-
-
 def get_current_user(auth_user: str = Cookie(None)) -> str:
     if auth_user is None:
         raise HTTPException(status_code=401, detail="未登录或身份无效")
@@ -164,29 +159,38 @@ class PushSubscription(BaseModel):
     endpoint: str
     keys: Dict[str, str]
 
-
 @app.post("/xbzchat/v1/push/subscribe")
 def push_subscribe(
     sub: PushSubscription,
     user: str = Depends(get_current_user)
 ):
+    logger.info(f"push_subscribe called by user={user}, endpoint={sub.endpoint}")
     conn = sqlite3.connect("chat.db")
     cursor = conn.cursor()
 
+    # 先检查是否存在
     cursor.execute("""
-        INSERT OR IGNORE INTO push_subscriptions
-        (nick_name, endpoint, p256dh, auth)
-        VALUES (?, ?, ?, ?)
-    """, (
-        user,
-        sub.endpoint,
-        sub.keys["p256dh"],
-        sub.keys["auth"],
-    ))
+        SELECT 1 FROM push_subscriptions
+        WHERE nick_name = ? AND endpoint = ?
+    """, (user, sub.endpoint))
+    exists = cursor.fetchone()
 
-    conn.commit()
+    if not exists:
+        cursor.execute("""
+            INSERT INTO push_subscriptions
+            (nick_name, endpoint, p256dh, auth)
+            VALUES (?, ?, ?, ?)
+        """, (
+            user,
+            sub.endpoint,
+            sub.keys["p256dh"],
+            sub.keys["auth"],
+        ))
+        conn.commit()
+
     conn.close()
     return {"status": "ok"}
+
 
 @app.get("/xbzchat/v1/push/vapid_public_key")
 def get_vapid_key():
